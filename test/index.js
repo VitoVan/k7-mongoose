@@ -6,6 +6,10 @@ const Lab = require('lab');
 const Code = require('code');
 const Path = require('path');
 
+// Load CandyModel
+
+const CandyModel = require('./models/candy');
+
 // Load example
 
 const K7Mongoose = require('../lib');
@@ -132,6 +136,44 @@ describe('K7Mongoose', () => {
             });
         });
 
+        it('returns changed Promise when defaultPromise is set', (done) => {
+
+            const options = {
+                connectionString: 'mongodb://localhost:27017/K7Mongoose',
+                defaultPromise: require('bluebird'),
+                models: Path.join(process.cwd(), 'test/models/candy.js'),
+                events: {
+                    connected: () => {
+                        // http://mongoosejs.com/docs/promises.html
+                        CandyModel.remove().then(() => {});
+                        // query will be ok
+                        const query = CandyModel.findOne({ name: 'Sweet Milk' });
+                        expect(query.exec().constructor).to.equal(require('bluebird'));
+                        // save won't work
+                        const save = CandyModel({ name: 'My Candy' }).save();
+                        expect(save).to.be.instanceof(require('bluebird'));
+                    },
+                    disconnected: () => {},
+                    error: () => {}
+                }
+            };
+
+            const k7Mongoose = new K7Mongoose(options);
+
+            k7Mongoose.load((err, db) => {
+
+                expect(err).to.not.exist();
+                expect(db).to.include('mongoose');
+                expect(db).to.include('Candy');
+
+                db.mongoose.close(() => {
+
+                    return done();
+                });
+            });
+        });
+
+
         it('returns an error when an invalid file is passed', (done) => {
 
             const options = {
@@ -162,4 +204,3 @@ describe('K7Mongoose', () => {
         });
     });
 });
-
